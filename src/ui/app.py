@@ -1,11 +1,8 @@
-# src/ui/app.py
-
 import tkinter as tk
 import sys
 sys.path.append('../')  # Add the parent directory (src) to the Python path
-from geometric import Circle, Rectangle, Line
-
-class GraphicalEditorApp(tk.Tk):  # Inherit from tkinter.Tk
+from geometric import Circle, Rectangle, Line, Polygon, Text
+class GraphicalEditorApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Graphical Editor")
@@ -21,6 +18,9 @@ class GraphicalEditorApp(tk.Tk):  # Inherit from tkinter.Tk
         self.start_x = None
         self.start_y = None
         self.current_shape = None  # Reference to the current shape being drawn
+        self.polygon_mode = False  # Flag to indicate if polygon mode is activated
+        self.polygon_vertices = []  # List to store polygon vertices
+        self.eraser_mode = False  # Flag to indicate if eraser mode is activated
 
     def create_toolbar(self):
         toolbar = tk.Frame(self)
@@ -38,12 +38,8 @@ class GraphicalEditorApp(tk.Tk):  # Inherit from tkinter.Tk
         line_button = tk.Button(toolbar, text="Line", command=self.create_line)
         line_button.pack(side="left", padx=5, pady=5)
 
-        # Button for creating ellipses
-        ellipse_button = tk.Button(toolbar, text="Ellipse", command=self.create_ellipse)
-        ellipse_button.pack(side="left", padx=5, pady=5)
-
         # Button for creating polygons
-        polygon_button = tk.Button(toolbar, text="Polygon", command=self.create_polygon)
+        polygon_button = tk.Button(toolbar, text="Polygon", command=self.activate_polygon_mode)
         polygon_button.pack(side="left", padx=5, pady=5)
 
         # Button for creating text
@@ -119,50 +115,6 @@ class GraphicalEditorApp(tk.Tk):  # Inherit from tkinter.Tk
                                                       event.x, event.y,
                                                       fill="black")
 
-    def create_ellipse(self):
-        # Bind mouse events to handle ellipse creation
-        self.canvas.bind("<Button-1>", self.start_ellipse)
-        self.canvas.bind("<B1-Motion>", self.draw_ellipse)
-        self.canvas.bind("<ButtonRelease-1>", self.end_shape)
-
-    def start_ellipse(self, event):
-        # Record starting point of ellipse creation
-        self.start_x = event.x
-        self.start_y = event.y
-
-    def draw_ellipse(self, event):
-        # Delete the previous shape
-        if self.current_shape:
-            self.canvas.delete(self.current_shape)
-
-        # Draw the ellipse
-        self.current_shape = self.canvas.create_oval(self.start_x, self.start_y,
-                                                     event.x, event.y,
-                                                     outline="black")
-
-    def create_polygon(self):
-        # Bind mouse events to handle polygon creation
-        self.canvas.bind("<Button-1>", self.start_polygon)
-        self.canvas.bind("<B1-Motion>", self.draw_polygon)
-        self.canvas.bind("<ButtonRelease-1>", self.end_shape)
-
-    def start_polygon(self, event):
-        # Record starting point of polygon creation
-        self.start_x = event.x
-        self.start_y = event.y
-        # Initialize the list of polygon vertices
-        self.polygon_vertices = [self.start_x, self.start_y]
-
-    def draw_polygon(self, event):
-        # Add the current point to the polygon vertices
-        self.polygon_vertices.extend([event.x, event.y])
-        # Delete the previous shape
-        if self.current_shape:
-            self.canvas.delete(self.current_shape)
-        # Draw the polygon
-        self.current_shape = self.canvas.create_polygon(self.polygon_vertices,
-                                                        outline="black")
-
     def create_text(self):
         # Bind mouse events to handle text creation
         self.canvas.bind("<Button-1>", self.place_text)
@@ -178,16 +130,47 @@ class GraphicalEditorApp(tk.Tk):  # Inherit from tkinter.Tk
         # Reset the current shape reference
         self.current_shape = None
 
-    def use_eraser(self):
-        # Bind mouse events to handle eraser
-        self.canvas.bind("<Button-1>", self.erase_shape)
+    def activate_polygon_mode(self):
+        # Reset polygon mode and vertices list
+        self.polygon_mode = True
+        self.polygon_vertices = []
+        # Bind mouse events to handle polygon creation
+        self.canvas.bind("<Button-1>", self.start_polygon)
 
-    def erase_shape(self, event):
-        # Find the item closest to the mouse click
-        item = self.canvas.find_closest(event.x, event.y)
-        if item:
-            # Delete the shape
-            self.canvas.delete(item)
+    def start_polygon(self, event):
+        # If polygon mode is activated, record the polygon vertices
+        if self.polygon_mode:
+            self.polygon_vertices.append((event.x, event.y))
+            # Draw a line if there are multiple vertices
+            if len(self.polygon_vertices) > 1:
+                prev_x, prev_y = self.polygon_vertices[-2]
+                self.canvas.create_line(prev_x, prev_y, event.x, event.y, fill="black")
+            # Draw the final polygon when the user clicks near the first vertex
+            if len(self.polygon_vertices) > 2 and self.is_close_to_first_vertex(event.x, event.y):
+                self.draw_polygon()
+                self.polygon_mode = False
+
+    def is_close_to_first_vertex(self, x, y):
+        # Check if the current mouse position is close to the first vertex
+        first_x, first_y = self.polygon_vertices[0]
+        return abs(x - first_x) < 5 and abs(y - first_y) < 5
+
+    def draw_polygon(self):
+        # Draw the final polygon
+        self.canvas.create_polygon(self.polygon_vertices, outline="black", fill="white")
+
+    def use_eraser(self):
+        # Toggle eraser mode
+        self.eraser_mode = not self.eraser_mode
+        if self.eraser_mode:
+            # Bind mouse events to handle erasing
+            self.canvas.bind("<Button-1>", self.erase_object)
+
+    def erase_object(self, event):
+        # Find objects overlapping with the mouse click and delete them
+        objects = self.canvas.find_overlapping(event.x - 1, event.y - 1, event.x + 1, event.y + 1)
+        for obj in objects:
+            self.canvas.delete(obj)
 
 def run():
     app = GraphicalEditorApp()
