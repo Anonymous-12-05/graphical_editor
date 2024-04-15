@@ -2,6 +2,8 @@ import tkinter as tk
 import sys
 sys.path.append('../')  # Add the parent directory (src) to the Python path
 from geometric import Circle, Rectangle, Line, Polygon, Text
+import tkinter.simpledialog as simpledialog
+
 class GraphicalEditorApp(tk.Tk):
     def __init__(self):
         super().__init__()
