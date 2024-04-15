@@ -3,6 +3,7 @@ import sys
 sys.path.append('../')  # Add the parent directory (src) to the Python path
 from geometric import Circle, Rectangle, Line, Polygon, Text
 import tkinter.simpledialog as simpledialog
+import tkinter.colorchooser as colorchooser
 
 class GraphicalEditorApp(tk.Tk):
     def __init__(self):
@@ -16,6 +17,9 @@ class GraphicalEditorApp(tk.Tk):
         self.canvas = tk.Canvas(self, width=400, height=400, bg="white")
         self.canvas.pack()
 
+        # List to store references to all shapes drawn on the canvas
+        self.shapes = []
+
         # Variables to store mouse coordinates
         self.start_x = None
         self.start_y = None
@@ -23,6 +27,9 @@ class GraphicalEditorApp(tk.Tk):
         self.polygon_mode = False  # Flag to indicate if polygon mode is activated
         self.polygon_vertices = []  # List to store polygon vertices
         self.eraser_mode = False  # Flag to indicate if eraser mode is activated
+
+        # Bind right-click event to handle shape modification
+        self.canvas.bind("<Button-3>", self.modify_shape)
 
     def create_toolbar(self):
         toolbar = tk.Frame(self)
@@ -56,7 +63,7 @@ class GraphicalEditorApp(tk.Tk):
         # Bind mouse events to handle circle creation
         self.canvas.bind("<Button-1>", self.start_circle)
         self.canvas.bind("<B1-Motion>", self.draw_circle)
-        self.canvas.bind("<ButtonRelease-1>", self.end_shape)
+        self.canvas.bind("<ButtonRelease-1>", self.end_circle)
 
     def start_circle(self, event):
         # Record starting point of circle creation
@@ -75,11 +82,16 @@ class GraphicalEditorApp(tk.Tk):
                                                       self.start_x + radius, self.start_y + radius,
                                                       outline="black")
 
+    def end_circle(self, event):
+        # Save the circle shape
+        self.shapes.append(self.current_shape)
+        self.current_shape = None
+
     def create_rectangle(self):
         # Bind mouse events to handle rectangle creation
         self.canvas.bind("<Button-1>", self.start_rectangle)
         self.canvas.bind("<B1-Motion>", self.draw_rectangle)
-        self.canvas.bind("<ButtonRelease-1>", self.end_shape)
+        self.canvas.bind("<ButtonRelease-1>", self.end_rectangle)
 
     def start_rectangle(self, event):
         # Record starting point of rectangle creation
@@ -96,11 +108,16 @@ class GraphicalEditorApp(tk.Tk):
                                                           event.x, event.y,
                                                           outline="black")
 
+    def end_rectangle(self, event):
+        # Save the rectangle shape
+        self.shapes.append(self.current_shape)
+        self.current_shape = None
+
     def create_line(self):
         # Bind mouse events to handle line creation
         self.canvas.bind("<Button-1>", self.start_line)
         self.canvas.bind("<B1-Motion>", self.draw_line)
-        self.canvas.bind("<ButtonRelease-1>", self.end_shape)
+        self.canvas.bind("<ButtonRelease-1>", self.end_line)
 
     def start_line(self, event):
         # Record starting point of line creation
@@ -117,20 +134,22 @@ class GraphicalEditorApp(tk.Tk):
                                                       event.x, event.y,
                                                       fill="black")
 
+    def end_line(self, event):
+        # Save the line shape
+        self.shapes.append(self.current_shape)
+        self.current_shape = None
+
     def create_text(self):
         # Bind mouse events to handle text creation
         self.canvas.bind("<Button-1>", self.place_text)
 
     def place_text(self, event):
         # Prompt the user for text input
-        user_text = tk.simpledialog.askstring("Input", "Enter text:")
+        user_text = simpledialog.askstring("Input", "Enter text:")
         if user_text:
             # Create the text object
-            self.canvas.create_text(event.x, event.y, text=user_text, fill="black")
-
-    def end_shape(self, event):
-        # Reset the current shape reference
-        self.current_shape = None
+            text_id = self.canvas.create_text(event.x, event.y, text=user_text, fill="black")
+            self.shapes.append(text_id)
 
     def activate_polygon_mode(self):
         # Reset polygon mode and vertices list
@@ -159,7 +178,8 @@ class GraphicalEditorApp(tk.Tk):
 
     def draw_polygon(self):
         # Draw the final polygon
-        self.canvas.create_polygon(self.polygon_vertices, outline="black", fill="white")
+        polygon_id = self.canvas.create_polygon(self.polygon_vertices, outline="black", fill="white")
+        self.shapes.append(polygon_id)
 
     def use_eraser(self):
         # Toggle eraser mode
@@ -173,6 +193,34 @@ class GraphicalEditorApp(tk.Tk):
         objects = self.canvas.find_overlapping(event.x - 1, event.y - 1, event.x + 1, event.y + 1)
         for obj in objects:
             self.canvas.delete(obj)
+            self.shapes.remove(obj)
+
+    def modify_shape(self, event):
+        # Find the shape under the mouse click
+        clicked_objects = self.canvas.find_overlapping(event.x, event.y, event.x, event.y)
+        if clicked_objects:
+            clicked_shape_id = clicked_objects[-1]  # Get the topmost shape (last in the list)
+            # Open modify window for the clicked shape
+            self.open_modify_window(clicked_shape_id)
+            # Bind left-click event for resizing
+            self.canvas.tag_bind(clicked_shape_id, "<Button-1>", lambda event, shape_id=clicked_shape_id: self.resize_shape(event, shape_id))
+
+    def open_modify_window(self, shape_id):
+        # Placeholder for opening the modify window with color selection
+        color_choice = colorchooser.askcolor(title="Choose Color")
+        if color_choice[1]:  # Check if a color was chosen
+            print(f"Shape {shape_id} modified with color: {color_choice[1]}")
+            self.canvas.itemconfig(shape_id, fill=color_choice[1])  # Change shape color
+
+    def resize_shape(self, event, shape_id):
+        # Get the current coordinates of the shape
+        bbox = self.canvas.bbox(shape_id)
+        x1, y1, x2, y2 = bbox
+        # Calculate the new coordinates based on mouse movement
+        new_x2 = x2 + (event.x - x2)
+        new_y2 = y2 + (event.y - y2)
+        # Update the shape with the new coordinates
+        self.canvas.coords(shape_id, x1, y1, new_x2, new_y2)
 
 def run():
     app = GraphicalEditorApp()
