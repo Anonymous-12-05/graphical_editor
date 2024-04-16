@@ -4,8 +4,6 @@ sys.path.append('../')  # Add the parent directory (src) to the Python path
 from geometric import Circle, Rectangle, Line, Polygon, Text
 import tkinter.simpledialog as simpledialog
 import tkinter.colorchooser as colorchooser
-from tkinter import filedialog
-from PIL import Image, ImageGrab
 
 class GraphicalEditorApp(tk.Tk):
     def __init__(self):
@@ -29,21 +27,9 @@ class GraphicalEditorApp(tk.Tk):
         self.polygon_mode = False  # Flag to indicate if polygon mode is activated
         self.polygon_vertices = []  # List to store polygon vertices
         self.eraser_mode = False  # Flag to indicate if eraser mode is activated
-        self.copy_shape_id = None  # ID of the shape to be copied
 
         # Bind right-click event to handle shape modification
         self.canvas.bind("<Button-3>", self.modify_shape)
-        # Bind Ctrl+C to copy shape
-        self.bind_all("<Control-c>", self.copy_shape)
-        # Bind Ctrl+V to paste shape
-        self.bind_all("<Control-v>", self.paste_shape)
-        # Bind left mouse button click event to start moving object
-        self.canvas.bind("<Button-1>", self.start_move)
-        # Bind left mouse button release event to end moving object
-        self.canvas.bind("<ButtonRelease-1>", self.end_move)
-
-        # Add menu options for file operations
-        self.create_file_menu()
 
     def create_toolbar(self):
         toolbar = tk.Frame(self)
@@ -73,11 +59,8 @@ class GraphicalEditorApp(tk.Tk):
         eraser_button = tk.Button(toolbar, text="Eraser", command=self.use_eraser)
         eraser_button.pack(side="left", padx=5, pady=5)
 
-        # Button for resizing
-        resize_button = tk.Button(toolbar, text="Resize", command=self.use_eraser)
-        resize_button.pack(side="left", padx=5, pady=5)
-
-        
+        eraser_button = tk.Button(toolbar, text="Resize", command=self.use_eraser)
+        eraser_button.pack(side="left", padx=5, pady=5)
 
     def create_circle(self):
         # Bind mouse events to handle circle creation
@@ -215,6 +198,7 @@ class GraphicalEditorApp(tk.Tk):
             self.canvas.delete(obj)
             self.shapes.remove(obj)
 
+
     def modify_shape(self, event):
         # Find the shape under the mouse click
         clicked_objects = self.canvas.find_overlapping(event.x, event.y, event.x, event.y)
@@ -275,114 +259,6 @@ class GraphicalEditorApp(tk.Tk):
         # Update the line with the new coordinates
         self.canvas.coords(shape_id, self.start_x, self.start_y, event.x, event.y)
 
-    def copy_shape(self, event=None):
-        # Check if a shape is selected
-        if self.shapes:
-            selected_shape_id = self.shapes[-1]  # Get the topmost shape (last in the list)
-            self.copy_shape_id = selected_shape_id
-            print(f"Shape {selected_shape_id} copied")
-
-    def paste_shape(self, event=None):
-        # Check if a shape is copied
-        if self.copy_shape_id is not None:
-            # Get the type of the copied shape
-            copied_shape_type = self.get_shape_type(self.copy_shape_id)
-            # Get the mouse cursor position
-            x, y = self.canvas.winfo_pointerxy()
-            x = self.canvas.canvasx(x)
-            y = self.canvas.canvasy(y)
-            if copied_shape_type == "circle":
-                # Get the coordinates and radius of the copied circle
-                x1, y1, x2, y2 = self.canvas.coords(self.copy_shape_id)
-                radius = (x2 - x1) / 2
-                # Create a new circle with the same properties at the mouse cursor position
-                new_circle_id = self.canvas.create_oval(x - radius, y - radius, x + radius, y + radius, outline="black")
-                self.shapes.append(new_circle_id)
-            elif copied_shape_type == "rectangle":
-                # Get the coordinates of the copied rectangle
-                x1, y1, x2, y2 = self.canvas.coords(self.copy_shape_id)
-                # Create a new rectangle with the same properties at the mouse cursor position
-                new_rectangle_id = self.canvas.create_rectangle(x1, y1, x2, y2, outline="black")
-                self.shapes.append(new_rectangle_id)
-            elif copied_shape_type == "line":
-                # Get the coordinates of the copied line
-                x1, y1, x2, y2 = self.canvas.coords(self.copy_shape_id)
-                # Create a new line with the same properties at the mouse cursor position
-                new_line_id = self.canvas.create_line(x1, y1, x2, y2, fill="black")
-                self.shapes.append(new_line_id)
-            # Add support for other shape types as needed
-
-    def start_move(self, event):
-        # Find the shape under the mouse click
-        clicked_objects = self.canvas.find_overlapping(event.x, event.y, event.x, event.y)
-        if clicked_objects:
-            clicked_shape_id = clicked_objects[-1]  # Get the topmost shape (last in the list)
-            self.current_shape = clicked_shape_id
-            bbox = self.canvas.bbox(clicked_shape_id)
-            self.start_x, self.start_y = event.x - bbox[0], event.y - bbox[1]
-
-    def end_move(self, event):
-        self.current_shape = None
-
-    def move_shape(self, event):
-        if self.current_shape:
-            # Calculate the new coordinates based on mouse movement
-            x, y = event.x - self.start_x, event.y - self.start_y
-            # Move the shape to the new coordinates
-            self.canvas.coords(self.current_shape, x, y)
-    def create_file_menu(self):
-        # Create a menu bar
-        menubar = tk.Menu(self)
-        self.config(menu=menubar)
-
-        # Create File menu
-        file_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_command(label="Save", command=self.save_file)
-        file_menu.add_command(label="Open", command=self.open_file)
-        file_menu.add_command(label="Delete", command=self.delete_file)
-
-    def save_file(self):
-        filename = filedialog.asksaveasfilename(initialdir="/", title="Select file",
-                                        filetypes=(("JPEG files", "*.jpg"), 
-                                                   ("PNG files", "*.png"),
-                                                   ("GIF files", "*.gif"),
-                                                   ("BMP files", "*.bmp")))
-
-        if filename:
-            x = self.winfo_x()
-            y = self.winfo_y()
-            im = ImageGrab.grab(bbox=(x + 91, y + 31, x + 891, y + 653))  # Screenshot canvas area
-            im.save(filename)
-            print("File saved successfully.")
-
-    def open_file(self):
-        filename = filedialog.asksaveasfilename(initialdir="/", title="Select file",
-                                        filetypes=(("JPEG files", "*.jpg"), 
-                                                   ("PNG files", "*.png"),
-                                                   ("GIF files", "*.gif"),
-                                                   ("BMP files", "*.bmp")))
-
-        if filename:
-            imgtemp = Image.open(filename)
-            if imgtemp.size[0] > 800 or imgtemp.size[1] > 600:  # if image is larger than 800x600, resize
-                imgtemp = imgtemp.resize((800, 600), Image.ANTIALIAS)
-            imgtemp.save("Temp.gif", "gif")
-            self.file_to_open = tk.PhotoImage(file="Temp.gif")  # reference to image, otherwise will be lost to garbage collection
-            self.canvas.delete("all")  # clear canvas beforehand
-            self.canvas.create_image(3, 3, image=self.file_to_open, anchor=tk.NW)  # image must be anchored to be centered on screen
-            print("File opened successfully.")
-
-    def delete_file(self):
-        filename = filedialog.askopenfilename(initialdir="/", title="Select file",
-                                              filetypes=(("jpeg files", "*.jpg"), ("png files", "*.png"),
-                                                         ("gif files", "*.gif"), ("bmp files", "*.bmp")))
-        if filename:
-            try:
-                os.remove(filename)
-                print("File deleted successfully.")
-            except FileNotFoundError:
-                print("File not found.")
 
 def run():
     app = GraphicalEditorApp()
